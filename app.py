@@ -143,13 +143,17 @@ def load_real_emel_data():
         
         # Generate some historical data based on the loaded locations
         for _, row in pd.DataFrame(locations).iterrows():
+            # Add variation per parking lot
+            lot_factor = np.random.uniform(0.7, 1.3)
+            
             for day in range(3):  # 3 days of data
                 for hour in range(24):
-                    # Simulate realistic occupancy patterns
-                    base_occupancy = 0.3 + 0.4 * np.sin((hour - 6) * np.pi / 12)
-                    base_occupancy = max(0.1, min(0.9, base_occupancy))
+                    # Simulate realistic occupancy patterns with more variation
+                    base_occupancy = 0.2 + 0.5 * np.sin((hour - 6) * np.pi / 12)
+                    base_occupancy = base_occupancy * lot_factor
+                    base_occupancy = max(0.05, min(0.95, base_occupancy))
                     
-                    occupied = int(row["lugares_totais"] * base_occupancy + np.random.normal(0, 0.1))
+                    occupied = int(row["lugares_totais"] * base_occupancy + np.random.normal(0, row["lugares_totais"] * 0.1))
                     occupied = max(0, min(row["lugares_totais"], occupied))
                     
                     history.append({
@@ -239,15 +243,21 @@ def load_real_lisbon_coordinates():
         "endereco": [park["endereco"] for park in real_emel_parking]
     })
     
-    # Generate historical data
+    # Generate historical data with more realistic variation
     records = []
     for _, row in locations.iterrows():
+        # Add some variation per parking lot (some are busier than others)
+        lot_factor = np.random.uniform(0.7, 1.3)  # Some lots are 30% busier/quieter
+        
         for day in range(3):
             for hour in range(24):
-                base_occupancy = 0.3 + 0.4 * np.sin((hour - 6) * np.pi / 12)
-                base_occupancy = max(0.1, min(0.9, base_occupancy))
+                # Create realistic occupancy patterns
+                base_occupancy = 0.2 + 0.5 * np.sin((hour - 6) * np.pi / 12)
+                base_occupancy = base_occupancy * lot_factor  # Apply lot-specific factor
+                base_occupancy = max(0.05, min(0.95, base_occupancy))  # Keep between 5-95%
                 
-                occupied = int(row["lugares_totais"] * base_occupancy + np.random.normal(0, 0.1))
+                # Add some randomness
+                occupied = int(row["lugares_totais"] * base_occupancy + np.random.normal(0, row["lugares_totais"] * 0.1))
                 occupied = max(0, min(row["lugares_totais"], occupied))
                 
                 records.append({
@@ -468,7 +478,7 @@ view_state = pdk.ViewState(
 tooltip = {
     "html": "<b>{nome_parque}</b><br/>"
             "Zona: {zona}<br/>"
-            "Vacancy Probability: <b>{pred_vacancy:.1%}</b><br/>"
+            "Vacancy Probability: <b>{pred_vacancy:.0%}</b><br/>"
             "Total Spaces: {lugares_totais}<br/>"
             "Address: {endereco}",
     "style": {
