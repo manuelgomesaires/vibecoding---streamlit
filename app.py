@@ -68,7 +68,8 @@ data = history.merge(locations, on="id", how="left")
 # --------------------------------------------------------------
 
 @st.cache_resource
-def train_model(data):
+def train_model():
+    # Use the global data variable
     X = data[["hour", "weekday", "capacity"]]
     y = data["prob_vacant"]
 
@@ -80,7 +81,7 @@ def train_model(data):
     score = model.score(X_test, y_test)
     return model, score, X_test, y_test
 
-model, model_score, X_test, y_test = train_model(data)
+model, model_score, X_test, y_test = train_model()
 
 # --------------------------------------------------------------
 # 🎛️ User Controls
