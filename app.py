@@ -463,6 +463,10 @@ for i, pred in enumerate(predictions):
 locations["pred_vacancy"] = predictions
 filtered = locations[locations["pred_vacancy"] >= threshold]
 
+# Debug: Show actual prediction values
+st.write(f"Sample prediction values: {locations['pred_vacancy'].head().tolist()}")
+st.write(f"Prediction range: {locations['pred_vacancy'].min():.3f} to {locations['pred_vacancy'].max():.3f}")
+
 # --------------------------------------------------------------
 # 🗺️ Map Visualization
 # --------------------------------------------------------------
@@ -504,15 +508,17 @@ view_state = pdk.ViewState(
 )
 
 tooltip = {
-    "html": "<b>Vacancy Probability: {pred_vacancy:.0%}</b>",
+    "html": "<b>{nome_parque}</b><br/>"
+            "Zona: {zona}<br/>"
+            "Vacancy Probability: <b>{pred_vacancy:.1%}</b><br/>"
+            "Total Spaces: {lugares_totais}<br/>"
+            "Address: {endereco}",
     "style": {
         "backgroundColor": "steelblue",
         "color": "white",
-        "fontSize": "16px",
-        "fontWeight": "bold",
+        "fontSize": "14px",
         "padding": "10px",
-        "borderRadius": "5px",
-        "textAlign": "center"
+        "borderRadius": "5px"
     }
 }
 
