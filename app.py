@@ -12,7 +12,7 @@ st.title("🚗 Parking Vacancy Probability")
 with st.sidebar:
     st.header("Filters & Settings")
     threshold = st.slider("Min vacancy probability", 0.0, 1.0, 0.3)
-    area = st.selectbox("Area", ["Downtown", "Uptown", "Harbor", "Campus"])
+    area = st.selectbox("Area", ["Baixa", "Chiado", "Alfama", "Bairro Alto", "Belém"])
     time_of_day = st.slider("Time of day", 0, 23, 18)
     show_heatmap = st.checkbox("Show as heatmap", False)
     refresh = st.button("Refresh 🔄")
@@ -20,10 +20,10 @@ with st.sidebar:
 # --- Generate or Load Data (Simulated Example) ---
 np.random.seed(42)
 data = pd.DataFrame({
-    "lat": np.random.uniform(37.77, 37.79, 50),
-    "lon": np.random.uniform(-122.42, -122.40, 50),
+    "lat": np.random.uniform(38.70, 38.75, 50),
+    "lon": np.random.uniform(-9.15, -9.10, 50),
     "prob_vacant": np.random.rand(50),
-    "location_name": [f"Spot {i}" for i in range(1, 51)]
+    "location_name": [f"Lisbon Spot {i}" for i in range(1, 51)]
 })
 
 # Filter by threshold
@@ -32,7 +32,7 @@ filtered = data[data["prob_vacant"] >= threshold]
 # --- Summary statistics ---
 total_spots = len(data)
 avg_prob = data["prob_vacant"].mean()
-best_area = "Market St (72%)"  # placeholder; could be computed from data
+best_area = "Chiado (72%)"  # placeholder; could be computed from data
 
 # --- Map Visualization ---
 if show_heatmap:
@@ -92,4 +92,4 @@ trend_data = pd.DataFrame({
 st.line_chart(trend_data, x="Hour", y="Vacancy Probability")
 
 # --- Footer ---
-st.caption("Demo layout inspired by parking probability map mockup.")
+st.caption("Lisbon parking vacancy probability based on car movement patterns.")
