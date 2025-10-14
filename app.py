@@ -452,21 +452,24 @@ parking_layer = pdk.Layer(
 layers = [parking_layer]
 
 if satellite_view or map_style == "Satellite":
+    # Use Google Satellite tiles for reliable satellite imagery
     satellite_layer = pdk.Layer(
         "TileLayer",
         data=[],
-        opacity=0.7,
-        get_tile_data="https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
-        max_zoom=19,
-        min_zoom=0
+        opacity=0.9,
+        get_tile_data="https://mt1.google.com/vt/lyrs=s&x={x}&y={y}&z={z}",
+        max_zoom=20,
+        min_zoom=0,
+        tile_size=256,
+        update_trigger="visible"
     )
     layers.insert(0, satellite_layer)
 
-# Map style configuration
+# Map style configuration with proper satellite support
 map_style_config = {
-    "Default": None,
-    "Satellite": "satellite",
-    "Terrain": "terrain", 
+    "Default": "road",
+    "Satellite": "satellite", 
+    "Terrain": "outdoors",
     "Dark": "dark"
 }
 
@@ -474,24 +477,38 @@ map_style_config = {
 view_state = pdk.ViewState(
     latitude=38.7223,
     longitude=-9.1393,
-    zoom=13
+    zoom=13,
+    pitch=0,
+    bearing=0
 )
 
 # Tooltip
 tooltip = {"text": "{nome_parque}\nZona: {zona}\nPredicted Vacancy: {pred_vacancy:.2f}"}
 
-# Create deck with map style
+# Create deck with proper satellite configuration
 deck = pdk.Deck(
     layers=layers,
     initial_view_state=view_state,
     tooltip=tooltip,
-    map_style=map_style_config.get(map_style)
+    map_style=map_style_config.get(map_style, "road"),
+    map_provider="mapbox" if not satellite_view else None
 )
 
 st.subheader("🗺️ Predicted Vacancy Map")
 if satellite_view:
-    st.info("🛰️ Satellite imagery overlay enabled")
-st.pydeck_chart(deck)
+    st.info("🛰️ Satellite imagery overlay enabled - Using Google Satellite tiles")
+    
+# Alternative satellite view using st.map if pydeck satellite fails
+if satellite_view:
+    col1, col2 = st.columns([3, 1])
+    with col1:
+        st.pydeck_chart(deck)
+    with col2:
+        st.write("**Alternative View:**")
+        if st.button("Show in Google Maps"):
+            st.markdown(f"[Open in Google Maps](https://www.google.com/maps/@38.7223,-9.1393,13z/data=!3m1!4b1!4m2!6m1!1s1)")
+else:
+    st.pydeck_chart(deck)
 
 # --------------------------------------------------------------
 # 📊 Summary & Model Metrics
