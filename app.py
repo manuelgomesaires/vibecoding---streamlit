@@ -1,62 +1,54 @@
 import streamlit as st
 import pandas as pd
-import random
+import pydeck as pdk
+import numpy as np
 
-st.set_page_config(page_title="Parking Map")
+st.set_page_config(page_title="Parking Vacancy Map", layout="wide")
 
-st.title("Empty Parking Spaces Map")
+st.title("🚗 Parking Vacancy Probability Map")
 
-# Initialize storage for parking spots in session
-if "spots" not in st.session_state:
-  st.session_state.spots = []  # list of {"lat": float, "lon": float}
+# --- Simulated Data ---
+np.random.seed(42)
+data = pd.DataFrame({
+    "lat": np.random.uniform(37.77, 37.79, 50),
+    "lon": np.random.uniform(-122.42, -122.40, 50),
+    "prob_vacant": np.random.rand(50),
+    "location_name": [f"Spot {i}" for i in range(1, 51)]
+})
 
-with st.expander("Add parking spot"):
-  c1, c2, c3 = st.columns([1,1,1])
-  with c1:
-    lat = st.number_input("Latitude", value=38.7223, format="%.6f")
-  with c2:
-    lon = st.number_input("Longitude", value=-9.1393, format="%.6f")
-  with c3:
-    if st.button("Add spot"):
-      st.session_state.spots.append({"lat": float(lat), "lon": float(lon)})
+# --- Controls ---
+threshold = st.slider("Minimum Vacancy Probability", 0.0, 1.0, 0.3)
+filtered = data[data["prob_vacant"] >= threshold]
 
-c4, c5 = st.columns([1,1])
-with c4:
-  if st.button("Load demo spots"):
-    # Simple demo set (around Lisbon). Replace with real data later.
-    st.session_state.spots = [
-      {"lat": 38.7223, "lon": -9.1393},
-      {"lat": 38.7230, "lon": -9.1400},
-      {"lat": 38.7215, "lon": -9.1385},
-    ]
-with c5:
-  if st.button("Clear spots"):
-    st.session_state.spots = []
+# --- Map Layer ---
+layer = pdk.Layer(
+    "ScatterplotLayer",
+    data=filtered,
+    get_position=["lon", "lat"],
+    get_radius=50,
+    get_fill_color=[
+        "255 * (1 - prob_vacant)",  # Red when low
+        "255 * prob_vacant",        # Green when high
+        100,
+        160
+    ],
+    pickable=True
+)
 
-st.subheader("Recommendations")
-with st.expander("Load most probable spots"):
-  top_n = st.slider("How many spots?", 1, 20, 5)
-  center_lat = st.number_input("Center latitude", value=38.7223, format="%.6f")
-  center_lon = st.number_input("Center longitude", value=-9.1393, format="%.6f")
-  if st.button("Generate recommendations"):
-    # Mock: generate 50 candidates around the center with random probability
-    candidates = []
-    for _ in range(50):
-      dlat = random.uniform(-0.01, 0.01)
-      dlon = random.uniform(-0.01, 0.01)
-      prob = random.random()
-      candidates.append({"lat": center_lat + dlat, "lon": center_lon + dlon, "prob": prob})
-    # Pick top-N by probability
-    candidates.sort(key=lambda x: x["prob"], reverse=True)
-    selected = [{"lat": c["lat"], "lon": c["lon"]} for c in candidates[:top_n]]
-    # Merge into current spots
-    st.session_state.spots.extend(selected)
-    st.success(f"Loaded {len(selected)} recommended spot(s)")
+# --- View ---
+view_state = pdk.ViewState(
+    latitude=data["lat"].mean(),
+    longitude=data["lon"].mean(),
+    zoom=14
+)
 
-st.subheader("Map")
-if st.session_state.spots:
-  df = pd.DataFrame(st.session_state.spots)
-  st.caption(f"Showing {len(df)} spot(s)")
-  st.map(df, zoom=15)
-else:
-  st.info("No spots yet. Add one above or load demo spots.")
+# --- Render ---
+r = pdk.Deck(
+    layers=[layer],
+    initial_view_state=view_state,
+    tooltip={"text": "{location_name}\nVacancy Probability: {prob_vacant}"}
+)
+
+st.pydeck_chart(r)
+
+st.write(f"Showing {len(filtered)} of {len(data)} locations (≥ {threshold:.2f} probability).")
