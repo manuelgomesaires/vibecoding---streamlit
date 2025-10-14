@@ -1,95 +1,159 @@
+# ==============================================================
+# 🚗 Lisbon Parking Vacancy Prediction App
+# Uses historical EMEL-style data to predict free spots
+# Works in Streamlit or Cursor IDE
+# ==============================================================
+
 import streamlit as st
 import pandas as pd
 import numpy as np
 import pydeck as pdk
+from sklearn.model_selection import train_test_split
+from sklearn.ensemble import RandomForestRegressor
+import matplotlib.pyplot as plt
 
-# --- Page setup ---
-st.set_page_config(page_title="Parking Vacancy Probability", layout="wide")
+# --------------------------------------------------------------
+# 🧱 Page Configuration
+# --------------------------------------------------------------
+st.set_page_config(page_title="Lisbon Parking Prediction", layout="wide")
+st.title("🚗 Lisbon Parking Vacancy Probability (EMEL Historical Data Demo)")
 
-st.title("🚗 Parking Vacancy Probability")
+# --------------------------------------------------------------
+# 📥 Load or Simulate EMEL Historical Datasets
+# (replace with real CSVs from dados.gov.pt or EMEL portal)
+# --------------------------------------------------------------
 
-# --- Sidebar Controls ---
+@st.cache_data
+def load_emel_data():
+    # Simulated parking locations
+    locations = pd.DataFrame({
+        "id": range(1, 51),
+        "latitude": np.random.uniform(38.70, 38.76, 50),
+        "longitude": np.random.uniform(-9.18, -9.10, 50),
+        "capacity": np.random.randint(20, 100, 50),
+        "zone_name": [f"Zona {i}" for i in range(1, 51)]
+    })
+
+    # Simulated occupancy history (3 days, hourly)
+    records = []
+    for _, row in locations.iterrows():
+        for day in range(3):
+            for hour in range(24):
+                occupied = np.random.randint(0, row["capacity"])
+                records.append({
+                    "id": row["id"],
+                    "timestamp": pd.Timestamp("2025-10-10") + pd.Timedelta(days=day, hours=hour),
+                    "occupied": occupied,
+                    "capacity": row["capacity"]
+                })
+    history = pd.DataFrame(records)
+    return locations, history
+
+locations, history = load_emel_data()
+
+# --------------------------------------------------------------
+# 🧮 Data Preprocessing
+# --------------------------------------------------------------
+
+history["timestamp"] = pd.to_datetime(history["timestamp"])
+history["hour"] = history["timestamp"].dt.hour
+history["weekday"] = history["timestamp"].dt.dayofweek
+history["prob_vacant"] = (history["capacity"] - history["occupied"]) / history["capacity"]
+
+# Merge with location info
+data = history.merge(locations, on="id", how="left")
+
+# --------------------------------------------------------------
+# 🧠 Train a Simple Prediction Model
+# --------------------------------------------------------------
+
+@st.cache_resource
+def train_model(data):
+    X = data[["hour", "weekday", "capacity"]]
+    y = data["prob_vacant"]
+
+    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+
+    model = RandomForestRegressor(n_estimators=200, random_state=42)
+    model.fit(X_train, y_train)
+
+    score = model.score(X_test, y_test)
+    return model, score, X_test, y_test
+
+model, model_score, X_test, y_test = train_model(data)
+
+# --------------------------------------------------------------
+# 🎛️ User Controls
+# --------------------------------------------------------------
+
 with st.sidebar:
-    st.header("Filters & Settings")
-    threshold = st.slider("Min vacancy probability", 0.0, 1.0, 0.3)
-    area = st.selectbox("Area", ["Baixa", "Chiado", "Alfama", "Bairro Alto", "Belém"])
-    time_of_day = st.slider("Time of day", 0, 23, 18)
-    show_heatmap = st.checkbox("Show as heatmap", False)
-    refresh = st.button("Refresh 🔄")
+    st.header("Settings & Filters")
+    selected_hour = st.slider("Hour of Day", 0, 23, 12)
+    selected_weekday = st.selectbox("Day of Week", ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"])
+    threshold = st.slider("Minimum Vacancy Probability", 0.0, 1.0, 0.3)
 
-# --- Generate or Load Data (Simulated Example) ---
-np.random.seed(42)
-data = pd.DataFrame({
-    "lat": np.random.uniform(38.70, 38.75, 50),
-    "lon": np.random.uniform(-9.15, -9.10, 50),
-    "prob_vacant": np.random.rand(50),
-    "location_name": [f"Lisbon Spot {i}" for i in range(1, 51)]
+weekday_idx = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"].index(selected_weekday)
+
+# --------------------------------------------------------------
+# 🔮 Predict Vacancy for Selected Time
+# --------------------------------------------------------------
+
+sample = pd.DataFrame({
+    "hour": [selected_hour] * len(locations),
+    "weekday": [weekday_idx] * len(locations),
+    "capacity": locations["capacity"]
 })
 
-# Filter by threshold
-filtered = data[data["prob_vacant"] >= threshold]
+locations["pred_vacancy"] = model.predict(sample)
+filtered = locations[locations["pred_vacancy"] >= threshold]
 
-# --- Summary statistics ---
-total_spots = len(data)
-avg_prob = data["prob_vacant"].mean()
-best_area = "Chiado (72%)"  # placeholder; could be computed from data
+# --------------------------------------------------------------
+# 🗺️ Map Visualization
+# --------------------------------------------------------------
 
-# --- Map Visualization ---
-if show_heatmap:
-    layer = pdk.Layer(
-        "HeatmapLayer",
-        data=filtered,
-        get_position=["lon", "lat"],
-        get_weight="prob_vacant",
-        radiusPixels=60,
-    )
-else:
-    layer = pdk.Layer(
-        "ScatterplotLayer",
-        data=filtered,
-        get_position=["lon", "lat"],
-        get_radius=60,
-        get_fill_color=[
-            "255 * (1 - prob_vacant)",
-            "255 * prob_vacant",
-            100,
-            160
-        ],
-        pickable=True,
-    )
+layer = pdk.Layer(
+    "ScatterplotLayer",
+    data=filtered,
+    get_position=["longitude", "latitude"],
+    get_radius=80,
+    get_fill_color=[
+        "255 * (1 - pred_vacancy)",
+        "255 * pred_vacancy",
+        50,
+        200
+    ],
+    pickable=True
+)
 
 view_state = pdk.ViewState(
-    latitude=data["lat"].mean(),
-    longitude=data["lon"].mean(),
-    zoom=14
+    latitude=38.7223,
+    longitude=-9.1393,
+    zoom=13
 )
 
-r = pdk.Deck(
-    layers=[layer],
-    initial_view_state=view_state,
-    tooltip={"text": "{location_name}\nVacancy Probability: {prob_vacant}"}
-)
+tooltip = {"text": "{zone_name}\nPredicted Vacancy: {pred_vacancy:.2f}"}
 
-# --- Layout: Map + Summary ---
-col1, col2 = st.columns([2.5, 1])
+st.subheader("🗺️ Predicted Vacancy Map")
+st.pydeck_chart(pdk.Deck(layers=[layer], initial_view_state=view_state, tooltip=tooltip))
 
-with col1:
-    st.pydeck_chart(r)
+# --------------------------------------------------------------
+# 📊 Summary & Model Metrics
+# --------------------------------------------------------------
 
-with col2:
-    st.subheader("Summary")
-    st.metric("Total Spots", total_spots)
-    st.metric("Avg Vacancy Probability", f"{avg_prob:.2f}")
-    st.metric("Best Area", best_area)
+col1, col2, col3 = st.columns(3)
+col1.metric("Total Parking Areas", len(locations))
+col2.metric("Model R² Score", f"{model_score:.2f}")
+col3.metric("Average Predicted Vacancy", f"{locations['pred_vacancy'].mean():.2f}")
 
-# --- Vacancy Trends ---
-st.subheader("📈 Vacancy Trends")
-hours = np.arange(0, 24)
-trend_data = pd.DataFrame({
-    "Hour": hours,
-    "Vacancy Probability": np.clip(np.sin(hours / 3) * 0.3 + 0.5 + np.random.rand(24) * 0.1, 0, 1)
+# --------------------------------------------------------------
+# 📈 Trend Visualization
+# --------------------------------------------------------------
+
+st.subheader("📈 Model Validation (Test Data)")
+chart_data = pd.DataFrame({
+    "Actual": y_test.reset_index(drop=True),
+    "Predicted": model.predict(X_test)
 })
-st.line_chart(trend_data, x="Hour", y="Vacancy Probability")
+st.line_chart(chart_data)
 
-# --- Footer ---
-st.caption("Lisbon parking vacancy probability based on car movement patterns.")
+st.caption("Simulated EMEL data — replace with real CSVs for production use.")

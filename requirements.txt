@@ -6,3 +6,5 @@ selenium
 webdriver-manager
 streamlit
 pydeck
+scikit-learn
+matplotlib
