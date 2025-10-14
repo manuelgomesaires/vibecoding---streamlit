@@ -21,12 +21,6 @@ from datetime import datetime, timedelta
 st.set_page_config(page_title="Lisbon Parking Prediction", layout="wide")
 st.title("🚗 Lisbon Parking Vacancy Probability (EMEL Historical Data)")
 
-# Data source indicator
-if not locations.empty and not history.empty:
-    st.success("✅ Connected to EMEL Open Data API - Real parking data loaded")
-else:
-    st.info("ℹ️ Using simulated EMEL data - API connection unavailable")
-
 # Information about EMEL data structure
 with st.expander("📋 About EMEL Parking Data Structure"):
     st.markdown("""
@@ -181,6 +175,12 @@ def load_simulated_emel_data():
 
 # Try to load real EMEL data first, fallback to simulated data
 locations, history = load_real_emel_data()
+
+# Data source indicator
+if not locations.empty and not history.empty:
+    st.success("✅ Connected to EMEL Open Data API - Real parking data loaded")
+else:
+    st.info("ℹ️ Using simulated EMEL data - API connection unavailable")
 
 # --------------------------------------------------------------
 # 🧮 Data Preprocessing
