@@ -432,8 +432,32 @@ model, model_score, X_test, y_test = train_model()
 
 with st.sidebar:
     st.header("Settings & Filters")
-    selected_hour = st.slider("Hour of Day", 0, 23, 12)
-    selected_weekday = st.selectbox("Day of Week", ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"])
+    
+    # Date/Time selection mode
+    use_current_time = st.checkbox("Use Current Date & Time", value=True)
+    
+    if use_current_time:
+        # Get current date and time
+        now = datetime.now()
+        current_hour = now.hour
+        current_weekday = now.strftime("%a")  # Mon, Tue, Wed, etc.
+        
+        col1, col2 = st.columns([2, 1])
+        with col1:
+            st.info(f"📅 Current: {current_weekday} {current_hour:02d}:00")
+        with col2:
+            if st.button("🔄", help="Refresh current time"):
+                st.rerun()
+        
+        selected_hour = current_hour
+        selected_weekday = current_weekday
+    else:
+        # Manual date/time selection
+        st.subheader("Select Date & Time")
+        selected_hour = st.slider("Hour of Day", 0, 23, 12)
+        selected_weekday = st.selectbox("Day of Week", ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"])
+    
+    st.subheader("Filters")
     threshold = st.slider("Minimum Vacancy Probability", 0.0, 1.0, 0.3)
 
 weekday_idx = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"].index(selected_weekday)
