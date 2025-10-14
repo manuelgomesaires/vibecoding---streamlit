@@ -14,6 +14,8 @@ import matplotlib.pyplot as plt
 import requests
 import json
 from datetime import datetime, timedelta
+import geopy.distance
+from geopy.geocoders import Nominatim
 
 # --------------------------------------------------------------
 # 🧱 Page Configuration
@@ -368,6 +370,50 @@ def load_simulated_emel_data():
 # Try to load real EMEL data first, fallback to simulated data
 locations, history = load_real_emel_data()
 
+# --------------------------------------------------------------
+# 🔍 Search and Geocoding Functions
+# --------------------------------------------------------------
+
+@st.cache_data
+def geocode_address(address):
+    """Geocode an address to get coordinates"""
+    try:
+        geolocator = Nominatim(user_agent="lisbon_parking_app")
+        location = geolocator.geocode(f"{address}, Lisbon, Portugal", timeout=10)
+        if location:
+            return location.latitude, location.longitude
+        return None
+    except:
+        return None
+
+def calculate_distance(lat1, lon1, lat2, lon2):
+    """Calculate distance between two points in kilometers"""
+    try:
+        return geopy.distance.distance((lat1, lon1), (lat2, lon2)).km
+    except:
+        return float('inf')
+
+def find_nearest_parks(search_coords, locations_df, max_distance=2.0):
+    """Find parking spots within max_distance km of search coordinates"""
+    if search_coords is None:
+        return locations_df
+    
+    search_lat, search_lon = search_coords
+    
+    # Calculate distances
+    distances = []
+    for _, row in locations_df.iterrows():
+        dist = calculate_distance(search_lat, search_lon, row['latitude'], row['longitude'])
+        distances.append(dist)
+    
+    locations_df = locations_df.copy()
+    locations_df['distance_km'] = distances
+    
+    # Filter by distance and sort by proximity
+    nearest = locations_df[locations_df['distance_km'] <= max_distance].sort_values('distance_km')
+    
+    return nearest
+
 # Data source indicator
 if not locations.empty and not history.empty:
     st.success("✅ Connected to EMEL Open Data API - Real parking data loaded")
@@ -433,6 +479,10 @@ model, model_score, X_test, y_test = train_model()
 with st.sidebar:
     st.header("Settings & Filters")
     
+    # Search functionality
+    st.subheader("🔍 Search Location")
+    search_input = st.text_input("Enter street or postal code", placeholder="e.g., Rua Augusta, 1100-026")
+    
     # Date/Time selection mode
     use_current_time = st.checkbox("Use Current Date & Time", value=True)
     
@@ -463,18 +513,43 @@ with st.sidebar:
 weekday_idx = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"].index(selected_weekday)
 
 # --------------------------------------------------------------
+# 🔍 Process Search Input
+# --------------------------------------------------------------
+
+search_coords = None
+search_results = None
+
+if search_input.strip():
+    with st.spinner("Searching for location..."):
+        search_coords = geocode_address(search_input)
+    
+    if search_coords:
+        st.success(f"📍 Found: {search_input}")
+        search_results = find_nearest_parks(search_coords, locations)
+        if len(search_results) > 0:
+            st.info(f"Found {len(search_results)} parking spots within 2km")
+        else:
+            st.warning("No parking spots found within 2km. Showing all locations.")
+            search_results = locations
+    else:
+        st.error("Location not found. Please try a different address or postal code.")
+        search_results = locations
+else:
+    search_results = locations
+
+# --------------------------------------------------------------
 # 🔮 Predict Vacancy for Selected Time
 # --------------------------------------------------------------
 
 sample = pd.DataFrame({
-    "hour": [selected_hour] * len(locations),
-    "weekday": [weekday_idx] * len(locations),
-    "capacity": locations["lugares_totais"]
+    "hour": [selected_hour] * len(search_results),
+    "weekday": [weekday_idx] * len(search_results),
+    "capacity": search_results["lugares_totais"]
 })
 
 # Generate realistic predictions directly instead of relying on model
 predictions = []
-for i in range(len(locations)):
+for i in range(len(search_results)):
     # Create realistic vacancy probabilities based on time and location
     base_prob = 0.3 + 0.4 * np.sin((selected_hour - 6) * np.pi / 12)  # Time-based pattern
     base_prob = max(0.1, min(0.9, base_prob))  # Keep between 10-90%
@@ -486,8 +561,8 @@ for i in range(len(locations)):
     
     predictions.append(final_prob)
 
-locations["pred_vacancy"] = predictions
-filtered = locations[locations["pred_vacancy"] >= threshold]
+search_results["pred_vacancy"] = predictions
+filtered = search_results[search_results["pred_vacancy"] >= threshold]
 
 # --------------------------------------------------------------
 # 🗺️ Map Visualization
@@ -511,12 +586,20 @@ def get_color_by_vacancy(vacancy_prob):
 def create_tooltip_text(row):
     percentage = f"{row['pred_vacancy']:.0%}"
     price = f"€{row['preco_hora']:.2f}"
-    return f"<b>{row['nome_parque']}</b><br/>" \
-           f"Zona: {row['zona']}<br/>" \
-           f"Vacancy Probability: <b>{percentage}</b><br/>" \
-           f"Price per Hour: <b>{price}</b><br/>" \
-           f"Total Spaces: {row['lugares_totais']}<br/>" \
-           f"Address: {row['endereco']}"
+    
+    tooltip_text = f"<b>{row['nome_parque']}</b><br/>" \
+                   f"Zona: {row['zona']}<br/>" \
+                   f"Vacancy Probability: <b>{percentage}</b><br/>" \
+                   f"Price per Hour: <b>{price}</b><br/>" \
+                   f"Total Spaces: {row['lugares_totais']}<br/>" \
+                   f"Address: {row['endereco']}"
+    
+    # Add distance if available (from search)
+    if 'distance_km' in row and not pd.isna(row['distance_km']):
+        distance = f"{row['distance_km']:.1f} km"
+        tooltip_text += f"<br/>Distance: <b>{distance}</b>"
+    
+    return tooltip_text
 
 # Add formatted tooltip text to filtered data
 filtered_with_tooltip = filtered.copy()
