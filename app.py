@@ -27,6 +27,46 @@ if not locations.empty and not history.empty:
 else:
     st.info("ℹ️ Using simulated EMEL data - API connection unavailable")
 
+# Information about EMEL data structure
+with st.expander("📋 About EMEL Parking Data Structure"):
+    st.markdown("""
+    ### 📊 **EMEL "Ocupação de Parques de Estacionamento (Histórico)" Data Structure**
+    
+    The EMEL historical parking occupancy files contain comprehensive data about parking availability in Lisbon:
+    
+    #### **Main Data Columns:**
+    - **`id_parque`** - Unique parking lot identifier
+    - **`nome_parque`** - Official parking lot name
+    - **`zona`** - EMEL parking zone (1-5, different pricing areas)
+    - **`data`** - Date in YYYY-MM-DD format
+    - **`hora`** - Hour of day (0-23)
+    - **`lugares_totais`** - Total parking spaces available
+    - **`lugares_ocupados`** - Currently occupied spaces
+    - **`lugares_livres`** - Available/free spaces
+    - **`taxa_ocupacao`** - Occupancy rate (percentage)
+    
+    #### **Additional Information:**
+    - **`latitude/longitude`** - GPS coordinates for each parking lot
+    - **`endereco`** - Street address
+    - **`preco_hora`** - Hourly parking rate (€)
+    - **`tipo_parque`** - Type: "Superfície", "Subterrâneo", or "Misto"
+    - **`capacidade_maxima`** - Maximum capacity
+    
+    #### **Data Coverage:**
+    - **Frequency**: Hourly data points
+    - **Historical Period**: Up to 3 years of data
+    - **Update Schedule**: Daily updates
+    - **Geographic Scope**: All EMEL-managed parking in Lisbon
+    
+    #### **Data Source:**
+    - **API**: `opendata.emel.pt`
+    - **Format**: JSON/CSV via REST API
+    - **License**: Open Data (CC BY 4.0)
+    - **Access**: Free public access
+    
+    This data enables accurate parking predictions based on real historical patterns and current occupancy trends.
+    """)
+
 # --------------------------------------------------------------
 # 📥 Load Real EMEL Data from Open Data Portal
 # --------------------------------------------------------------
