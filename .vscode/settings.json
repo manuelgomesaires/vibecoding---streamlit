@@ -1,0 +1,24 @@
+{
+  "python.defaultInterpreterPath": "${workspaceFolder}/.venv/bin/python",
+  "python.terminal.activateEnvironment": true,
+  "terminal.integrated.env.osx": {
+    "BASH_ENV": "${workspaceFolder}/.vscode/terminal-init.sh",
+    "ENV": "${workspaceFolder}/.vscode/terminal-init.sh"
+  },
+  "terminal.integrated.env.linux": {
+    "BASH_ENV": "${workspaceFolder}/.vscode/terminal-init.sh",
+    "ENV": "${workspaceFolder}/.vscode/terminal-init.sh"
+  },
+  "terminal.integrated.profiles.windows": {
+    "PowerShell": {
+      "source": "PowerShell",
+      "icon": "terminal-powershell",
+      "args": ["-NoExit", "-File", "${workspaceFolder}/.vscode/terminal-init.ps1"]
+    }
+  },
+  "terminal.integrated.defaultProfile.windows": "PowerShell",
+  "files.exclude": {
+    "**/__pycache__": true,
+    "**/*.pyc": true
+  }
+}
