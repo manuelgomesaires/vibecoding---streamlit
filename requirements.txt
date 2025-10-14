@@ -8,3 +8,4 @@ streamlit
 pydeck
 scikit-learn
 matplotlib
+requests

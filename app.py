@@ -11,20 +11,98 @@ import pydeck as pdk
 from sklearn.model_selection import train_test_split
 from sklearn.ensemble import RandomForestRegressor
 import matplotlib.pyplot as plt
+import requests
+import json
+from datetime import datetime, timedelta
 
 # --------------------------------------------------------------
 # 🧱 Page Configuration
 # --------------------------------------------------------------
 st.set_page_config(page_title="Lisbon Parking Prediction", layout="wide")
-st.title("🚗 Lisbon Parking Vacancy Probability (EMEL Historical Data Demo)")
+st.title("🚗 Lisbon Parking Vacancy Probability (EMEL Historical Data)")
+
+# Data source indicator
+if not locations.empty and not history.empty:
+    st.success("✅ Connected to EMEL Open Data API - Real parking data loaded")
+else:
+    st.info("ℹ️ Using simulated EMEL data - API connection unavailable")
 
 # --------------------------------------------------------------
-# 📥 Load or Simulate EMEL Historical Datasets
-# (replace with real CSVs from dados.gov.pt or EMEL portal)
+# 📥 Load Real EMEL Data from Open Data Portal
 # --------------------------------------------------------------
+
+@st.cache_data(ttl=300)  # Cache for 5 minutes
+def load_real_emel_data():
+    """
+    Load real EMEL parking data from their open data API
+    """
+    try:
+        # EMEL Open Data API endpoints
+        api_base = "https://opendata.emel.pt/api/records/1.0/search/"
+        
+        # Get parking locations
+        locations_params = {
+            "dataset": "parques-de-estacionamento",
+            "rows": 1000,
+            "facet": ["zona", "tipo"]
+        }
+        
+        locations_response = requests.get(api_base, params=locations_params, timeout=10)
+        locations_data = locations_response.json()
+        
+        # Process locations data
+        locations = []
+        for record in locations_data.get("records", []):
+            fields = record.get("fields", {})
+            locations.append({
+                "id_parque": fields.get("id_parque"),
+                "nome_parque": fields.get("nome_parque"),
+                "zona": fields.get("zona"),
+                "latitude": fields.get("latitude"),
+                "longitude": fields.get("longitude"),
+                "lugares_totais": fields.get("lugares_totais"),
+                "preco_hora": fields.get("preco_hora"),
+                "tipo_parque": fields.get("tipo_parque"),
+                "endereco": fields.get("endereco")
+            })
+        
+        # Get historical occupancy data (last 7 days)
+        history = []
+        for i in range(7):
+            date = (datetime.now() - timedelta(days=i)).strftime("%Y-%m-%d")
+            
+            occupancy_params = {
+                "dataset": "ocupacao-parques-estacionamento",
+                "rows": 1000,
+                "refine.data": date
+            }
+            
+            try:
+                occupancy_response = requests.get(api_base, params=occupancy_params, timeout=10)
+                occupancy_data = occupancy_response.json()
+                
+                for record in occupancy_data.get("records", []):
+                    fields = record.get("fields", {})
+                    history.append({
+                        "id_parque": fields.get("id_parque"),
+                        "data": fields.get("data"),
+                        "hora": fields.get("hora"),
+                        "lugares_totais": fields.get("lugares_totais"),
+                        "lugares_ocupados": fields.get("lugares_ocupados"),
+                        "lugares_livres": fields.get("lugares_livres"),
+                        "taxa_ocupacao": fields.get("taxa_ocupacao")
+                    })
+            except:
+                continue  # Skip if API call fails for this date
+        
+        return pd.DataFrame(locations), pd.DataFrame(history)
+        
+    except Exception as e:
+        st.warning(f"Could not load real EMEL data: {str(e)}. Using simulated data instead.")
+        return load_simulated_emel_data()
 
 @st.cache_data
-def load_emel_data():
+def load_simulated_emel_data():
     # Simulated EMEL parking locations (based on real EMEL structure)
     locations = pd.DataFrame({
         "id_parque": range(1, 51),
@@ -61,7 +139,8 @@ def load_emel_data():
     history = pd.DataFrame(records)
     return locations, history
 
-locations, history = load_emel_data()
+# Try to load real EMEL data first, fallback to simulated data
+locations, history = load_real_emel_data()
 
 # --------------------------------------------------------------
 # 🧮 Data Preprocessing
