@@ -409,6 +409,10 @@ with st.sidebar:
     selected_hour = st.slider("Hour of Day", 0, 23, 12)
     selected_weekday = st.selectbox("Day of Week", ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"])
     threshold = st.slider("Minimum Vacancy Probability", 0.0, 1.0, 0.3)
+    
+    st.header("Map Settings")
+    satellite_view = st.checkbox("Satellite View", False)
+    map_style = st.selectbox("Map Style", ["Default", "Satellite", "Terrain", "Dark"])
 
 weekday_idx = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"].index(selected_weekday)
 
@@ -426,10 +430,11 @@ locations["pred_vacancy"] = model.predict(sample)
 filtered = locations[locations["pred_vacancy"] >= threshold]
 
 # --------------------------------------------------------------
-# 🗺️ Map Visualization
+# 🗺️ Map Visualization with Satellite View
 # --------------------------------------------------------------
 
-layer = pdk.Layer(
+# Create parking spots layer
+parking_layer = pdk.Layer(
     "ScatterplotLayer",
     data=filtered,
     get_position=["longitude", "latitude"],
@@ -443,16 +448,50 @@ layer = pdk.Layer(
     pickable=True
 )
 
+# Create satellite imagery layer if enabled
+layers = [parking_layer]
+
+if satellite_view or map_style == "Satellite":
+    satellite_layer = pdk.Layer(
+        "TileLayer",
+        data=[],
+        opacity=0.7,
+        get_tile_data="https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
+        max_zoom=19,
+        min_zoom=0
+    )
+    layers.insert(0, satellite_layer)
+
+# Map style configuration
+map_style_config = {
+    "Default": None,
+    "Satellite": "satellite",
+    "Terrain": "terrain", 
+    "Dark": "dark"
+}
+
+# View state
 view_state = pdk.ViewState(
     latitude=38.7223,
     longitude=-9.1393,
     zoom=13
 )
 
+# Tooltip
 tooltip = {"text": "{nome_parque}\nZona: {zona}\nPredicted Vacancy: {pred_vacancy:.2f}"}
 
+# Create deck with map style
+deck = pdk.Deck(
+    layers=layers,
+    initial_view_state=view_state,
+    tooltip=tooltip,
+    map_style=map_style_config.get(map_style)
+)
+
 st.subheader("🗺️ Predicted Vacancy Map")
-st.pydeck_chart(pdk.Deck(layers=[layer], initial_view_state=view_state, tooltip=tooltip))
+if satellite_view:
+    st.info("🛰️ Satellite imagery overlay enabled")
+st.pydeck_chart(deck)
 
 # --------------------------------------------------------------
 # 📊 Summary & Model Metrics
