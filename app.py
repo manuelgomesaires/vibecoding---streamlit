@@ -1,13 +1,23 @@
 import streamlit as st
 import pandas as pd
-import pydeck as pdk
 import numpy as np
+import pydeck as pdk
 
-st.set_page_config(page_title="Parking Vacancy Map", layout="wide")
+# --- Page setup ---
+st.set_page_config(page_title="Parking Vacancy Probability", layout="wide")
 
-st.title("🚗 Parking Vacancy Probability Map")
+st.title("🚗 Parking Vacancy Probability")
 
-# --- Simulated Data ---
+# --- Sidebar Controls ---
+with st.sidebar:
+    st.header("Filters & Settings")
+    threshold = st.slider("Min vacancy probability", 0.0, 1.0, 0.3)
+    area = st.selectbox("Area", ["Downtown", "Uptown", "Harbor", "Campus"])
+    time_of_day = st.slider("Time of day", 0, 23, 18)
+    show_heatmap = st.checkbox("Show as heatmap", False)
+    refresh = st.button("Refresh 🔄")
+
+# --- Generate or Load Data (Simulated Example) ---
 np.random.seed(42)
 data = pd.DataFrame({
     "lat": np.random.uniform(37.77, 37.79, 50),
@@ -16,39 +26,70 @@ data = pd.DataFrame({
     "location_name": [f"Spot {i}" for i in range(1, 51)]
 })
 
-# --- Controls ---
-threshold = st.slider("Minimum Vacancy Probability", 0.0, 1.0, 0.3)
+# Filter by threshold
 filtered = data[data["prob_vacant"] >= threshold]
 
-# --- Map Layer ---
-layer = pdk.Layer(
-    "ScatterplotLayer",
-    data=filtered,
-    get_position=["lon", "lat"],
-    get_radius=50,
-    get_fill_color=[
-        "255 * (1 - prob_vacant)",  # Red when low
-        "255 * prob_vacant",        # Green when high
-        100,
-        160
-    ],
-    pickable=True
-)
+# --- Summary statistics ---
+total_spots = len(data)
+avg_prob = data["prob_vacant"].mean()
+best_area = "Market St (72%)"  # placeholder; could be computed from data
 
-# --- View ---
+# --- Map Visualization ---
+if show_heatmap:
+    layer = pdk.Layer(
+        "HeatmapLayer",
+        data=filtered,
+        get_position=["lon", "lat"],
+        get_weight="prob_vacant",
+        radiusPixels=60,
+    )
+else:
+    layer = pdk.Layer(
+        "ScatterplotLayer",
+        data=filtered,
+        get_position=["lon", "lat"],
+        get_radius=60,
+        get_fill_color=[
+            "255 * (1 - prob_vacant)",
+            "255 * prob_vacant",
+            100,
+            160
+        ],
+        pickable=True,
+    )
+
 view_state = pdk.ViewState(
     latitude=data["lat"].mean(),
     longitude=data["lon"].mean(),
     zoom=14
 )
 
-# --- Render ---
 r = pdk.Deck(
     layers=[layer],
     initial_view_state=view_state,
     tooltip={"text": "{location_name}\nVacancy Probability: {prob_vacant}"}
 )
 
-st.pydeck_chart(r)
+# --- Layout: Map + Summary ---
+col1, col2 = st.columns([2.5, 1])
 
-st.write(f"Showing {len(filtered)} of {len(data)} locations (≥ {threshold:.2f} probability).")
+with col1:
+    st.pydeck_chart(r)
+
+with col2:
+    st.subheader("Summary")
+    st.metric("Total Spots", total_spots)
+    st.metric("Avg Vacancy Probability", f"{avg_prob:.2f}")
+    st.metric("Best Area", best_area)
+
+# --- Vacancy Trends ---
+st.subheader("📈 Vacancy Trends")
+hours = np.arange(0, 24)
+trend_data = pd.DataFrame({
+    "Hour": hours,
+    "Vacancy Probability": np.clip(np.sin(hours / 3) * 0.3 + 0.5 + np.random.rand(24) * 0.1, 0, 1)
+})
+st.line_chart(trend_data, x="Hour", y="Vacancy Probability")
+
+# --- Footer ---
+st.caption("Demo layout inspired by parking probability map mockup.")
