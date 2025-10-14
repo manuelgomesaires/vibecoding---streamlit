@@ -25,26 +25,38 @@ st.title("🚗 Lisbon Parking Vacancy Probability (EMEL Historical Data Demo)")
 
 @st.cache_data
 def load_emel_data():
-    # Simulated parking locations
+    # Simulated EMEL parking locations (based on real EMEL structure)
     locations = pd.DataFrame({
-        "id": range(1, 51),
+        "id_parque": range(1, 51),
+        "nome_parque": [f"Parque {i}" for i in range(1, 51)],
+        "zona": [f"Zona {np.random.randint(1, 6)}" for _ in range(50)],
         "latitude": np.random.uniform(38.70, 38.76, 50),
         "longitude": np.random.uniform(-9.18, -9.10, 50),
-        "capacity": np.random.randint(20, 100, 50),
-        "zone_name": [f"Zona {i}" for i in range(1, 51)]
+        "lugares_totais": np.random.randint(20, 100, 50),
+        "preco_hora": np.random.uniform(0.5, 2.5, 50).round(2),
+        "tipo_parque": np.random.choice(["Superfície", "Subterrâneo", "Misto"], 50)
     })
 
-    # Simulated occupancy history (3 days, hourly)
+    # Simulated EMEL occupancy history (3 days, hourly)
     records = []
     for _, row in locations.iterrows():
         for day in range(3):
             for hour in range(24):
-                occupied = np.random.randint(0, row["capacity"])
+                # Simulate realistic occupancy patterns (higher during day, lower at night)
+                base_occupancy = 0.3 + 0.4 * np.sin((hour - 6) * np.pi / 12)  # Peak around 12-14h
+                base_occupancy = max(0.1, min(0.9, base_occupancy))  # Keep between 10-90%
+                
+                occupied = int(row["lugares_totais"] * base_occupancy + np.random.normal(0, 0.1))
+                occupied = max(0, min(row["lugares_totais"], occupied))  # Ensure valid range
+                
                 records.append({
-                    "id": row["id"],
-                    "timestamp": pd.Timestamp("2025-10-10") + pd.Timedelta(days=day, hours=hour),
-                    "occupied": occupied,
-                    "capacity": row["capacity"]
+                    "id_parque": row["id_parque"],
+                    "data": (pd.Timestamp("2025-10-10") + pd.Timedelta(days=day)).strftime("%Y-%m-%d"),
+                    "hora": hour,
+                    "lugares_totais": row["lugares_totais"],
+                    "lugares_ocupados": occupied,
+                    "lugares_livres": row["lugares_totais"] - occupied,
+                    "taxa_ocupacao": round((occupied / row["lugares_totais"]) * 100, 2)
                 })
     history = pd.DataFrame(records)
     return locations, history
@@ -55,19 +67,17 @@ locations, history = load_emel_data()
 # 🧮 Data Preprocessing
 # --------------------------------------------------------------
 
-history["timestamp"] = pd.to_datetime(history["timestamp"])
-history["hour"] = history["timestamp"].dt.hour
+# Create timestamp from data and hora columns
+history["timestamp"] = pd.to_datetime(history["data"] + " " + history["hora"].astype(str) + ":00:00")
+history["hour"] = history["hora"]
 history["weekday"] = history["timestamp"].dt.dayofweek
-history["prob_vacant"] = (history["capacity"] - history["occupied"]) / history["capacity"]
+history["prob_vacant"] = history["lugares_livres"] / history["lugares_totais"]
 
 # Merge with location info
-data = history.merge(locations, on="id", how="left")
+data = history.merge(locations, on="id_parque", how="left")
 
-# Ensure capacity column exists (use capacity_x from history if capacity_y from locations is missing)
-if 'capacity_y' in data.columns:
-    data['capacity'] = data['capacity_y'].fillna(data['capacity_x'])
-else:
-    data['capacity'] = data['capacity_x']
+# Use the correct capacity column name
+data['capacity'] = data['lugares_totais_x']
 
 # --------------------------------------------------------------
 # 🧠 Train a Simple Prediction Model
@@ -108,7 +118,7 @@ weekday_idx = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"].index(selected_w
 sample = pd.DataFrame({
     "hour": [selected_hour] * len(locations),
     "weekday": [weekday_idx] * len(locations),
-    "capacity": locations["capacity"]
+    "capacity": locations["lugares_totais"]
 })
 
 locations["pred_vacancy"] = model.predict(sample)
@@ -138,7 +148,7 @@ view_state = pdk.ViewState(
     zoom=13
 )
 
-tooltip = {"text": "{zone_name}\nPredicted Vacancy: {pred_vacancy:.2f}"}
+tooltip = {"text": "{nome_parque}\nZona: {zona}\nPredicted Vacancy: {pred_vacancy:.2f}"}
 
 st.subheader("🗺️ Predicted Vacancy Map")
 st.pydeck_chart(pdk.Deck(layers=[layer], initial_view_state=view_state, tooltip=tooltip))
