@@ -429,18 +429,34 @@ filtered = locations[locations["pred_vacancy"] >= threshold]
 # 🗺️ Map Visualization
 # --------------------------------------------------------------
 
+# Create color-coded parking spots based on vacancy probability
+def get_color_by_vacancy(vacancy_prob):
+    """Return RGB color based on vacancy probability percentage"""
+    if vacancy_prob >= 0.8:  # 80%+ vacancy = Green
+        return [0, 255, 0, 200]
+    elif vacancy_prob >= 0.6:  # 60-79% vacancy = Light Green
+        return [100, 255, 100, 200]
+    elif vacancy_prob >= 0.4:  # 40-59% vacancy = Yellow
+        return [255, 255, 0, 200]
+    elif vacancy_prob >= 0.2:  # 20-39% vacancy = Orange
+        return [255, 165, 0, 200]
+    else:  # <20% vacancy = Red
+        return [255, 0, 0, 200]
+
+# Add color column to filtered data
+filtered_with_color = filtered.copy()
+filtered_with_color['color'] = filtered_with_color['pred_vacancy'].apply(get_color_by_vacancy)
+
 layer = pdk.Layer(
     "ScatterplotLayer",
-    data=filtered,
+    data=filtered_with_color,
     get_position=["longitude", "latitude"],
-    get_radius=80,
-    get_fill_color=[
-        "255 * (1 - pred_vacancy)",
-        "255 * pred_vacancy",
-        50,
-        200
-    ],
-    pickable=True
+    get_radius=100,
+    get_fill_color="color",
+    pickable=True,
+    stroked=True,
+    get_line_color=[255, 255, 255],
+    line_width_min_pixels=2
 )
 
 view_state = pdk.ViewState(
@@ -449,10 +465,46 @@ view_state = pdk.ViewState(
     zoom=13
 )
 
-tooltip = {"text": "{nome_parque}\nZona: {zona}\nPredicted Vacancy: {pred_vacancy:.2f}"}
+tooltip = {
+    "html": "<b>{nome_parque}</b><br/>"
+            "Zona: {zona}<br/>"
+            "Vacancy Probability: <b>{pred_vacancy:.1%}</b><br/>"
+            "Total Spaces: {lugares_totais}<br/>"
+            "Address: {endereco}",
+    "style": {
+        "backgroundColor": "steelblue",
+        "color": "white",
+        "fontSize": "14px",
+        "padding": "10px",
+        "borderRadius": "5px"
+    }
+}
 
 st.subheader("🗺️ Predicted Vacancy Map")
-st.pydeck_chart(pdk.Deck(layers=[layer], initial_view_state=view_state, tooltip=tooltip))
+
+# Add color legend
+col1, col2 = st.columns([3, 1])
+with col1:
+    st.pydeck_chart(pdk.Deck(layers=[layer], initial_view_state=view_state, tooltip=tooltip))
+with col2:
+    st.markdown("### 🎨 Color Legend")
+    st.markdown("""
+    <div style="margin-bottom: 10px;">
+        <span style="color: #00FF00; font-weight: bold;">🟢 80%+ Vacancy</span><br/>
+        <span style="color: #64FF64; font-weight: bold;">🟢 60-79% Vacancy</span><br/>
+        <span style="color: #FFFF00; font-weight: bold;">🟡 40-59% Vacancy</span><br/>
+        <span style="color: #FFA500; font-weight: bold;">🟠 20-39% Vacancy</span><br/>
+        <span style="color: #FF0000; font-weight: bold;">🔴 <20% Vacancy</span>
+    </div>
+    """, unsafe_allow_html=True)
+    
+    st.markdown("### 💡 Tips")
+    st.markdown("""
+    - **Hover** over parking spots to see details
+    - **Green spots** = High vacancy probability
+    - **Red spots** = Low vacancy probability
+    - **Larger spots** = More parking spaces available
+    """)
 
 # --------------------------------------------------------------
 # 📊 Summary & Model Metrics
