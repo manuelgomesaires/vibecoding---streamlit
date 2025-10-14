@@ -390,6 +390,10 @@ data = history.merge(locations, on="id_parque", how="left")
 # Use the correct capacity column name
 data['capacity'] = data['lugares_totais_x']
 
+# Debug: Check if we have valid probability data
+st.write(f"Debug: prob_vacant range: {data['prob_vacant'].min():.3f} to {data['prob_vacant'].max():.3f}")
+st.write(f"Debug: Sample prob_vacant values: {data['prob_vacant'].head().tolist()}")
+
 # --------------------------------------------------------------
 # 🧠 Train a Simple Prediction Model
 # --------------------------------------------------------------
@@ -434,6 +438,10 @@ sample = pd.DataFrame({
 
 locations["pred_vacancy"] = model.predict(sample)
 filtered = locations[locations["pred_vacancy"] >= threshold]
+
+# Debug: Check prediction values
+st.write(f"Debug: pred_vacancy range: {locations['pred_vacancy'].min():.3f} to {locations['pred_vacancy'].max():.3f}")
+st.write(f"Debug: Sample pred_vacancy values: {locations['pred_vacancy'].head().tolist()}")
 
 # --------------------------------------------------------------
 # 🗺️ Map Visualization
