@@ -1,5 +1,6 @@
 import streamlit as st
 import pandas as pd
+import random
 
 st.set_page_config(page_title="Parking Map")
 
@@ -31,6 +32,26 @@ with c4:
 with c5:
   if st.button("Clear spots"):
     st.session_state.spots = []
+
+st.subheader("Recommendations")
+with st.expander("Load most probable spots"):
+  top_n = st.slider("How many spots?", 1, 20, 5)
+  center_lat = st.number_input("Center latitude", value=38.7223, format="%.6f")
+  center_lon = st.number_input("Center longitude", value=-9.1393, format="%.6f")
+  if st.button("Generate recommendations"):
+    # Mock: generate 50 candidates around the center with random probability
+    candidates = []
+    for _ in range(50):
+      dlat = random.uniform(-0.01, 0.01)
+      dlon = random.uniform(-0.01, 0.01)
+      prob = random.random()
+      candidates.append({"lat": center_lat + dlat, "lon": center_lon + dlon, "prob": prob})
+    # Pick top-N by probability
+    candidates.sort(key=lambda x: x["prob"], reverse=True)
+    selected = [{"lat": c["lat"], "lon": c["lon"]} for c in candidates[:top_n]]
+    # Merge into current spots
+    st.session_state.spots.extend(selected)
+    st.success(f"Loaded {len(selected)} recommended spot(s)")
 
 st.subheader("Map")
 if st.session_state.spots:
