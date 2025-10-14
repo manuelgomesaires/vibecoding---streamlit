@@ -483,6 +483,19 @@ def get_color_by_vacancy(vacancy_prob):
     else:  # <20% vacancy = Red
         return [255, 0, 0, 200]
 
+# Create tooltip with proper percentage formatting
+def create_tooltip_text(row):
+    percentage = f"{row['pred_vacancy']:.0%}"
+    return f"<b>{row['nome_parque']}</b><br/>" \
+           f"Zona: {row['zona']}<br/>" \
+           f"Vacancy Probability: <b>{percentage}</b><br/>" \
+           f"Total Spaces: {row['lugares_totais']}<br/>" \
+           f"Address: {row['endereco']}"
+
+# Add formatted tooltip text to filtered data
+filtered_with_tooltip = filtered.copy()
+filtered_with_tooltip['tooltip_text'] = filtered_with_tooltip.apply(create_tooltip_text, axis=1)
+
 # Add color column to filtered data
 filtered_with_color = filtered_with_tooltip.copy()
 filtered_with_color['color'] = filtered_with_color['pred_vacancy'].apply(get_color_by_vacancy)
@@ -504,19 +517,6 @@ view_state = pdk.ViewState(
     longitude=-9.1393,
     zoom=13
 )
-
-# Create tooltip with proper percentage formatting
-def create_tooltip_text(row):
-    percentage = f"{row['pred_vacancy']:.0%}"
-    return f"<b>{row['nome_parque']}</b><br/>" \
-           f"Zona: {row['zona']}<br/>" \
-           f"Vacancy Probability: <b>{percentage}</b><br/>" \
-           f"Total Spaces: {row['lugares_totais']}<br/>" \
-           f"Address: {row['endereco']}"
-
-# Add formatted tooltip text to filtered data
-filtered_with_tooltip = filtered.copy()
-filtered_with_tooltip['tooltip_text'] = filtered_with_tooltip.apply(create_tooltip_text, axis=1)
 
 tooltip = {
     "html": "{tooltip_text}",
