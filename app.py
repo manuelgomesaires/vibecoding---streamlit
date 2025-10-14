@@ -510,9 +510,11 @@ def get_color_by_vacancy(vacancy_prob):
 # Create tooltip with proper percentage formatting
 def create_tooltip_text(row):
     percentage = f"{row['pred_vacancy']:.0%}"
+    price = f"€{row['preco_hora']:.2f}"
     return f"<b>{row['nome_parque']}</b><br/>" \
            f"Zona: {row['zona']}<br/>" \
            f"Vacancy Probability: <b>{percentage}</b><br/>" \
+           f"Price per Hour: <b>{price}</b><br/>" \
            f"Total Spaces: {row['lugares_totais']}<br/>" \
            f"Address: {row['endereco']}"
 
