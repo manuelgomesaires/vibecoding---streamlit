@@ -63,6 +63,12 @@ history["prob_vacant"] = (history["capacity"] - history["occupied"]) / history["
 # Merge with location info
 data = history.merge(locations, on="id", how="left")
 
+# Ensure capacity column exists (use capacity_x from history if capacity_y from locations is missing)
+if 'capacity_y' in data.columns:
+    data['capacity'] = data['capacity_y'].fillna(data['capacity_x'])
+else:
+    data['capacity'] = data['capacity_x']
+
 # --------------------------------------------------------------
 # 🧠 Train a Simple Prediction Model
 # --------------------------------------------------------------
