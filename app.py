@@ -504,17 +504,15 @@ view_state = pdk.ViewState(
 )
 
 tooltip = {
-    "html": "<b>{nome_parque}</b><br/>"
-            "Zona: {zona}<br/>"
-            "Vacancy Probability: <b>{pred_vacancy:.0%}</b><br/>"
-            "Total Spaces: {lugares_totais}<br/>"
-            "Address: {endereco}",
+    "html": "<b>Vacancy Probability: {pred_vacancy:.0%}</b>",
     "style": {
         "backgroundColor": "steelblue",
         "color": "white",
-        "fontSize": "14px",
+        "fontSize": "16px",
+        "fontWeight": "bold",
         "padding": "10px",
-        "borderRadius": "5px"
+        "borderRadius": "5px",
+        "textAlign": "center"
     }
 }
 
